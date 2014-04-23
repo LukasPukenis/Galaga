@@ -16,6 +16,13 @@ $(function() {
       }
     };    
 
+    var transformAssets = function() {
+      scene = _(scene).map(function(s) {
+        s.asset_id = assets + s.asset_id;
+        return s;
+      });
+    };
+
     var buildScene = function() {
 
       // add ship itself
@@ -34,10 +41,7 @@ $(function() {
       }));
 
       // transform asset_id fields to prepend assets folder. No need to write it all over the place
-      scene = _(scene).map(function(s) {
-        s.asset_id = assets + s.asset_id;
-        return s;
-      });
+      transformAssets();      
     };
 
     var findShip = function() {
@@ -59,6 +63,7 @@ $(function() {
 
     var shoot = function() {
       var ship = findShip();
+
     }
 
     // Renderers
@@ -145,4 +150,3 @@ $(function() {
   Galaga.init();
   Galaga.run();
 });
-
