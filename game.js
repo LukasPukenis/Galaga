@@ -2,6 +2,7 @@ $(function() {
   var assets = './assets/';
   
   var AssetLoader = (function() {
+    // bash: find . -type f
     var asset_paths = [
       './Space/Space_bg_1.png',
       './Space/Space_bg_4.png',
@@ -69,7 +70,6 @@ $(function() {
     var move_step = 10;
     var bullet_step = 10;
 
-    /*
     var enemiesGrid = [
       [0,0,0,1,1,1,1,0,0,0],
       [0,0,2,2,2,2,2,2,0,0],
@@ -77,16 +77,11 @@ $(function() {
       [1,1,1,1,1,1,1,1,1,1],
       [1,1,1,1,1,1,1,1,1,1]
     ];
-  */
-    var enemiesGrid = [
-      [0,0,0,0,0,0,0,0],
-      [1,1,1,1,1,1,1,1]
-    ];
 
     var renderer = 'DOM'; // TODO: WebGL
     var dims = {
-      width: 400,
-      height: 400
+      width: 800,
+      height: 600
     };
 
     var prefix = 'galaga_';
@@ -337,8 +332,8 @@ $(function() {
           var enemy = new SceneNode({
             type: 'enemy',
             position: {
-              x: idx * 40,
-              y: index * 44
+              x: ((dims.width / 2) - (line.length * 40 / 1.8)) + idx * 1.2 * 40,
+              y: index * 48
             },
             dimensions: {
               width: 36,
