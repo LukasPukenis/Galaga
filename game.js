@@ -1,6 +1,68 @@
 $(function() {
-  var Galaga = (function() {
-    var assets = './assets/';
+  var assets = './assets/';
+  
+  var AssetLoader = (function() {
+    var asset_paths = [
+      './Space/Space_bg_1.png',
+      './Space/Space_bg_4.png',
+      './Space/Space_bg_0.png',
+      './Space/Space_bg_3.png',
+      './Space/Space_bg_2.png',
+      './preview.png',
+      './Alien/Alien_l.png',
+      './Alien/Alien_r.png',
+      './Alien/Alien_ll.png',
+      './Alien/Alien_c.png',
+      './Alien/Alien_rr.png',
+      './Objects/Powerup_life.png',
+      './Objects/Powerup_generic.png',
+      './Light/Particle.png',
+      './Light/Light_blue_omni.png',
+      './Light/Light_red_omni.png',
+      './Ship/Ship_r.png',
+      './Ship/Ship_c.png',
+      './Ship/Ship_l.png',
+      './Ship/Ship_rr.png',
+      './Ship/Ship_ll.png',
+      './Ship/Exhaust/exhaust_03.png',
+      './Ship/Exhaust/exhaust_01.png',
+      './Ship/Exhaust/exhaust_02.png',
+      './Ship/Exhaust/exhaust_04.png',
+      './Weapon/Ship_bullet.png',
+      './Weapon/Alien_bullet.png',
+      './Weapon/Explosion/Explosion_08.png',
+      './Weapon/Explosion/Explosion_01.png',
+      './Weapon/Explosion/Explosion_05.png',
+      './Weapon/Explosion/Explosion_03.png',
+      './Weapon/Explosion/Explosion_02.png',
+      './Weapon/Explosion/Explosion_04.png',
+      './Weapon/Explosion/Explosion_06.png',
+      './Weapon/Explosion/Explosion_07.png'
+    ];
+
+    var load = function(callback) {
+      var images = [];
+      var size = asset_paths.length;
+      var loaded = 0;
+
+      _(asset_paths).each(function(asset) {
+        var img = new Image();
+        img.onload = function () {
+          loaded++;
+          if (loaded == size) {
+            callback();            
+          }
+        }
+        img.src = assets + asset + '?'+Math.random();
+      });
+    };
+
+    return {
+      load: load
+    }
+  })();
+
+  var Galaga = (function() {    
     var scene = []; // scene objects
     var action = null;  // input action to do
 
@@ -108,6 +170,13 @@ $(function() {
       if (ship.position.x > dims.width - ship.dimensions.width) ship.position.x = dims.width - ship.dimensions.width;
     };
 
+    var padZero = function(number) {
+      if (number < 10) {
+        return '0'+number;
+      }
+      return number;
+    };
+
     var shoot = function() {
       var ship = getShip();
 
@@ -156,13 +225,31 @@ $(function() {
                     width: 80,
                     height: 80 
                   },
+                  frame_index: 0,
+                  frame_count: 7,
+                  animate: function() {
+                    this.frame_index++;
+                    this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
+
+                    if (renderer = 'DOM') {
+                      Renders.DOM.updateCSS(this.id, {
+                        background: 'url("'+this.asset_id+'")',
+                      });
+                    }
+
+                    if (this.frame_index > this.frame_count) {
+                      removeSceneNodeById(this.id);
+                      this.id = null;
+                    }
+                    console.log(' -> ',$('#'+this.id).size());
+                  },
                   id: null,
-                  asset_id: 'Weapon/Explosion/Explosion_04.png',
+                  asset_id: 'Weapon/Explosion/Explosion_01.png',
                 });
 
                 // remove enemy and insert explosion
                 removeSceneNode(i, node.id);
-                scene.splice(i, 0, explosion);                
+                scene.splice(i, 0, explosion);
               }
             }
           });
@@ -186,6 +273,9 @@ $(function() {
               $('#playground').append('<div id="'+node.id+'" style="position: absolute; background: url('+node.asset_id+')">');
             }
           });
+        },
+        updateCSS: function(id, options) {
+          $('#playground').find('#'+id).css(options);
         },
         cleanNode: function(node_id) {
           $('#playground').find('#'+node_id).remove();
@@ -216,6 +306,7 @@ $(function() {
       requestAnimationFrame(renderScene);
     };
 
+    // bind input events and attach them to action so we can shoot without stopping the moving. Keyup is not called when another key is pressed
     var bindKeyboard = function() {      
       document.onkeydown = function(e) {
         e = e || window.event;
@@ -284,6 +375,8 @@ $(function() {
     }
   })();
 
-  Galaga.init();
-  Galaga.run();
+  AssetLoader.load(function() {
+    Galaga.init();
+    Galaga.run();
+  });  
 });
