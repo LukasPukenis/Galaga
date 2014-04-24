@@ -2,12 +2,35 @@ $(function() {
   var Galaga = (function() {
     var assets = './assets/';
     var scene = [];
+
     var move_step = 10;
+    var bullet_step = 10;
+
+    /*
+    var enemiesGrid = [
+      [0,0,0,1,1,1,1,0,0,0],
+      [0,0,2,2,2,2,2,2,0,0],
+      [0,0,2,2,2,2,2,2,0,0],
+      [1,1,1,1,1,1,1,1,1,1],
+      [1,1,1,1,1,1,1,1,1,1]
+    ];
+  */
+    var enemiesGrid = [
+      [0,0,0,0,0,0,0,0],
+      [1,1,1,1,1,1,1,1]
+    ];
 
     var renderer = 'DOM'; // TODO: WebGL
     var dims = {
       width: 400,
       height: 400
+    };
+
+    var prefix = 'galaga_';
+    var GUID_i = 0;
+    var GUID = function() {      
+      GUID_i++;      
+      return prefix+GUID_i;
     };
 
     var SceneNode = function(options) {
@@ -18,7 +41,7 @@ $(function() {
 
     var transformAssets = function() {
       scene = _(scene).map(function(s) {
-        s.asset_id = assets + s.asset_id;
+        if (s.asset_id.indexOf(assets) == -1) s.asset_id = assets + s.asset_id;
         return s;
       });
     };
@@ -44,30 +67,48 @@ $(function() {
       transformAssets();      
     };
 
-    function addSceneNode(node) {      
+    var removeSceneNode = function(idx, id) {
+      scene.splice(idx, 1);
+      if (typeof id !== undefined) {
+        if (renderer == 'DOM') Renders.DOM.cleanNode(id);
+      }      
+    };
+
+    var removeSceneNodeById = function(id) {
+      scene = _(scene).reject(function(node) {
+        return node.id == id;
+      });
+      if (renderer == 'DOM') Renders.DOM.cleanNode(id);
+    }
+
+    var addSceneNode = function(node) {      
       scene.push(node);
       transformAssets();
     }
 
-    var findShip = function() {
+    var getShip = function() {
       return _(scene).find(function(node) { return node.type == 'ship' });
-    }
+    };
+
+    var getEnemyShips = function() {
+      return _(scene).filter(function(node) { return node.type == 'enemy' });
+    };
 
     // keyboard actions
     var moveLeft = function() {
-      var ship = findShip();
+      var ship = getShip();
       ship.position.x -= move_step;
       if (ship.position.x < 0) ship.position.x = 0;
     };
     
     var moveRight = function() {
-      var ship = findShip();
+      var ship = getShip();
       ship.position.x += move_step;
       if (ship.position.x > dims.width - ship.dimensions.width) ship.position.x = dims.width - ship.dimensions.width;
     };
 
     var shoot = function() {
-      var ship = findShip();
+      var ship = getShip();
 
       var bullet = new SceneNode({
         type: 'bullet',
@@ -81,8 +122,53 @@ $(function() {
         },
         asset_id: 'Weapon/Ship_bullet.png',
         animate: function() {
-          this.position.y--;
-          if (this.position.y < 0) this.position.y = 0;
+          var bullet = this;
+          this.position.y -= bullet_step;
+
+          // check for collision. If enemy is hit then shot array will have it's ID
+          var enemies = getEnemyShips();
+          var shot = [];
+          _(enemies).each(function(enemy) {
+            // point -> rectangle collision
+            var xcoll = bullet.position.x >= enemy.position.x && bullet.position.x <= enemy.position.x+enemy.dimensions.width;
+            var ycoll = bullet.position.y >= enemy.position.y && bullet.position.y <= enemy.position.y+enemy.dimensions.height;
+            
+            if (xcoll && ycoll) {
+              removeSceneNodeById(bullet.id);
+              shot.push(enemy.id);
+            }
+          });
+
+          // shot array holds the IDs shot objects so we find the enemies and replace them with explosions
+          _(shot).each(function(idx) {
+            for (var i = 0; i < scene.length; i++) {
+              var node = scene[i];
+
+              if (node.id == idx) {
+                var explosion = new SceneNode({
+                  type: 'explosion',
+                  position: {
+                    x: node.position.x - (node.dimensions.width / 2),
+                    y: node.position.y - (node.dimensions.height / 2)
+                  },
+                  dimensions: {
+                    width: 80,
+                    height: 80 
+                  },
+                  id: null,
+                  asset_id: 'Weapon/Explosion/Explosion_04.png',
+                });
+
+                // remove enemy and insert explosion
+                removeSceneNode(i, node.id);
+                scene.splice(i, 0, explosion);                
+              }
+            }
+          });
+
+          transformAssets();
+          // check for out of screen bounds
+          if (this.position.y < 0) removeSceneNodeById(bullet.id);
         }
       });
 
@@ -90,17 +176,18 @@ $(function() {
     }
 
     // Renderers
-    var Renders = {
+    var Renders = {          
       DOM: {
-        prefix: 'galaga_',        
         add_nodes: function() {
           _(scene).each(function(node, idx) {
-            if (!node.id) {              
-              var new_id = Renders.DOM.prefix+idx;
-              node.id = new_id;
-              $('#playground').append('<div id="'+new_id+'" style="position: absolute; background: url('+node.asset_id+')">');
+            if (!node.id) {                            
+              node.id = GUID();
+              $('#playground').append('<div id="'+node.id+'" style="position: absolute; background: url('+node.asset_id+')">');
             }
           });
+        },
+        cleanNode: function(node_id) {
+          $('#playground').find('#'+node_id).remove();
         },
         render: function(node) {
           if (renderer = 'DOM') {
@@ -115,17 +202,6 @@ $(function() {
           };
 
           $('#playground').find('#'+node.id).css(styles);
-        },
-        buildStyles: function(styles) {
-
-
-          var built = [];
-          built.push('position: absolute');
-
-          for (var style in styles) {
-            built.push(style+':'+styles[style]);
-          }
-          return built.join(';');
         }
       }
     };
@@ -152,9 +228,36 @@ $(function() {
       };
     };
 
+    var buildEnemies = function() {
+      _(enemiesGrid).each(function(line, index) {
+        _(line).each(function(type, idx) {
+          if (type == 0) return;
+
+          var enemy = new SceneNode({
+            type: 'enemy',
+            position: {
+              x: idx * 40,
+              y: index * 44
+            },
+            dimensions: {
+              width: 36,
+              height: 40 
+            },
+            asset_id: 'Alien/Alien_c.png',
+            animate: function() {
+              
+            }
+          });
+
+          addSceneNode(enemy);
+        });
+      });
+    };
+
     var init = function() {
       buildScene();
       bindKeyboard();
+      buildEnemies();
     };
 
     var run = function() {
