@@ -44,6 +44,11 @@ $(function() {
       transformAssets();      
     };
 
+    function addSceneNode(node) {      
+      scene.push(node);
+      transformAssets();
+    }
+
     var findShip = function() {
       return _(scene).find(function(node) { return node.type == 'ship' });
     }
@@ -64,12 +69,29 @@ $(function() {
     var shoot = function() {
       var ship = findShip();
 
+      var bullet = new SceneNode({
+        type: 'bullet',
+        position: {
+          x: ship.position.x + (ship.dimensions.width / 2) - 2,
+          y: ship.position.y - 14
+        },
+        dimensions: {
+          width: 4,
+          height: 20 
+        },
+        asset_id: 'Weapon/Ship_bullet.png',
+        animate: function() {
+          this.position.y--;
+          if (this.position.y < 0) this.position.y = 0;
+        }
+      });
+
+      addSceneNode(bullet);
     }
 
     // Renderers
     var Renders = {
       DOM: {
-        nodes_already_added: false,
         prefix: 'galaga_',        
         add_nodes: function() {
           _(scene).each(function(node, idx) {
@@ -81,21 +103,18 @@ $(function() {
           });
         },
         render: function(node) {
-          if (!Renders.DOM.nodes_already_added) {
-            Renders.DOM.nodes_already_added = true;
+          if (renderer = 'DOM') {
             Renders.DOM.add_nodes();
           }
 
-          if (node.type == 'ship') {
-            var styles = {
-              width:  node.dimensions.width+'px',
-              height: node.dimensions.height+'px',
-              left: node.position.x+'px',
-              top: node.position.y +'px'
-            };
+          var styles = {
+            width:  node.dimensions.width+'px',
+            height: node.dimensions.height+'px',
+            left: node.position.x+'px',
+            top: node.position.y +'px'
+          };
 
-            $('#playground').find('#'+node.id).css(styles);
-          }
+          $('#playground').find('#'+node.id).css(styles);
         },
         buildStyles: function(styles) {
 
@@ -114,6 +133,7 @@ $(function() {
     var renderScene = function() {
       _(scene).each(function(scene_node) {
         if (renderer == 'DOM') Renders.DOM.render(scene_node);        
+        if (scene_node.animate) scene_node.animate();
       });
       requestAnimationFrame(renderScene);
     };
