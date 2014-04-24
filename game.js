@@ -1,7 +1,8 @@
 $(function() {
   var Galaga = (function() {
     var assets = './assets/';
-    var scene = [];
+    var scene = []; // scene objects
+    var action = null;  // input action to do
 
     var move_step = 10;
     var bullet_step = 10;
@@ -207,6 +208,7 @@ $(function() {
     };
     
     var renderScene = function() {
+      processQueue();
       _(scene).each(function(scene_node) {
         if (renderer == 'DOM') Renders.DOM.render(scene_node);        
         if (scene_node.animate) scene_node.animate();
@@ -214,18 +216,26 @@ $(function() {
       requestAnimationFrame(renderScene);
     };
 
-    var bindKeyboard = function() {
+    var bindKeyboard = function() {      
       document.onkeydown = function(e) {
         e = e || window.event;
-
         if (e.keyCode == 37) {
-          moveLeft();
+          action = moveLeft;
         } else if (e.keyCode == 39) {
-          moveRight();
+          action = moveRight;
         } else if (e.keyCode == 32) {
           shoot();
         }
       };
+
+      document.onkeyup = function(e) {
+        e = e || window.event;
+        if (e.keyCode == 37) {
+          action = null;
+        } else if (e.keyCode == 39) {
+          action = null;
+        }
+      }
     };
 
     var buildEnemies = function() {
@@ -254,6 +264,10 @@ $(function() {
       });
     };
 
+    var processQueue = function() {
+      if (action) action();
+    };
+
     var init = function() {
       buildScene();
       bindKeyboard();
@@ -261,7 +275,7 @@ $(function() {
     };
 
     var run = function() {
-      renderScene();
+      renderScene();      
     };
 
     return {
