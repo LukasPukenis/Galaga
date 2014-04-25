@@ -309,7 +309,8 @@ $(function() {
             width:  node.dimensions.width+'px',
             height: node.dimensions.height+'px',
             left: node.position.x+'px',
-            top: node.position.y +'px'
+            top: node.position.y +'px',
+            '-webkit-transform': 'rotate(' + node.rotation+'deg'+')'
           };
 
           $('#playground').find('#'+node.id).css(styles);
@@ -401,7 +402,11 @@ $(function() {
               x: null,
               y: null
             },
+            rotation: 0,
+            last_x: null,
+            last_y: null,
             shot_bullet: false,
+
             animate: function() {
               // decide to attack or not
               if (!this.attacking && !this.going_back && throwDice(0, 2000) == 1) {
@@ -429,6 +434,14 @@ $(function() {
                     new_y = bezierCubic(this.attack_bezier_params.B.y, this.attack_bezier_params.P2.y, this.attack_bezier_params.P1.y, this.attack_bezier_params.A.y, t);
                   }
 
+                  if (this.last_x && this.last_y) {
+                    this.rotation = Math.atan2( this.last_y-new_y, this.last_x-new_x);
+                    this.rotation = this.rotation * 180 / Math.PI;
+                    this.rotation -= 90;
+                  }
+                  this.last_x = new_x;
+                  this.last_y = new_y;
+
                   this.position = { x: new_x, y: new_y };
                 } else if (this.attacking) {
                   this.attacking = false;
@@ -437,6 +450,7 @@ $(function() {
                   this.attack_start_time = new Date().getTime();
                   this.attack_bezier_params = calculateEnemyPath(this, getShip());
                 } else {
+                  this.rotation = 0;
                   return;
                 }
               }
