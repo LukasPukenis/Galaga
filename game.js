@@ -1,6 +1,6 @@
 $(function() {
   var assets = './assets/';
-  
+
   var AssetLoader = (function() {
     // bash: find . -type f
     var asset_paths = [
@@ -51,7 +51,7 @@ $(function() {
         img.onload = function () {
           loaded++;
           if (loaded == size) {
-            callback();            
+            callback();
           }
         }
         img.src = assets + asset + '?'+Math.random();
@@ -63,7 +63,7 @@ $(function() {
     }
   })();
 
-  var Galaga = (function() {    
+  var Galaga = (function() {
     var scene = []; // scene objects
     var action = null;  // input action to do
 
@@ -84,10 +84,36 @@ $(function() {
       height: 600
     };
 
+    var throwDice = function(from, to) {
+      if (from > to) {
+        var t = from;
+        from = to;
+        to = t;
+      }
+      return from + Math.round(Math.random() * (to-from));
+    }
+
+    // bezier operations
+    function lerp(a, b, t) {
+      return a + ((b - a) * t);
+    }
+
+    function bezier(a, b, t) {
+      return lerp(a, b, t);
+    }
+
+    function bezierQuadratic(a, b, c, t) {
+      return bezier(lerp(a, b, t), lerp(b, c, t), t);
+    }
+
+    function bezierCubic(a, b, c, d, t) {
+      return bezierQuadratic(lerp(a, b, t), lerp(b, c, t), lerp(c, d, t), t);
+    }
+
     var prefix = 'galaga_';
     var GUID_i = 0;
-    var GUID = function() {      
-      GUID_i++;      
+    var GUID = function() {
+      GUID_i++;
       return prefix+GUID_i;
     };
 
@@ -95,7 +121,7 @@ $(function() {
       for (var i in options) {
         this[i] = options[i];
       }
-    };    
+    };
 
     var transformAssets = function() {
       scene = _(scene).map(function(s) {
@@ -111,7 +137,7 @@ $(function() {
         type: 'ship',
         position: {
           x: ((dims.width - 72) / 2),
-          y: dims.height - 90 
+          y: dims.height - 90
         },
         dimensions: {
           width: 72,
@@ -122,14 +148,14 @@ $(function() {
       }));
 
       // transform asset_id fields to prepend assets folder. No need to write it all over the place
-      transformAssets();      
+      transformAssets();
     };
 
     var removeSceneNode = function(idx, id) {
       scene.splice(idx, 1);
       if (typeof id !== undefined) {
         if (renderer == 'DOM') Renders.DOM.cleanNode(id);
-      }      
+      }
     };
 
     var removeSceneNodeById = function(id) {
@@ -137,12 +163,12 @@ $(function() {
         return node.id == id;
       });
       if (renderer == 'DOM') Renders.DOM.cleanNode(id);
-    }
+    };
 
-    var addSceneNode = function(node) {      
+    var addSceneNode = function(node) {
       scene.push(node);
       transformAssets();
-    }
+    };
 
     var getShip = function() {
       return _(scene).find(function(node) { return node.type == 'ship' });
@@ -158,7 +184,7 @@ $(function() {
       ship.position.x -= move_step;
       if (ship.position.x < 0) ship.position.x = 0;
     };
-    
+
     var moveRight = function() {
       var ship = getShip();
       ship.position.x += move_step;
@@ -183,7 +209,7 @@ $(function() {
         },
         dimensions: {
           width: 4,
-          height: 20 
+          height: 20
         },
         asset_id: 'Weapon/Ship_bullet.png',
         animate: function() {
@@ -197,7 +223,7 @@ $(function() {
             // point -> rectangle collision
             var xcoll = bullet.position.x >= enemy.position.x && bullet.position.x <= enemy.position.x+enemy.dimensions.width;
             var ycoll = bullet.position.y >= enemy.position.y && bullet.position.y <= enemy.position.y+enemy.dimensions.height;
-            
+
             if (xcoll && ycoll) {
               removeSceneNodeById(bullet.id);
               shot.push(enemy.id);
@@ -218,7 +244,7 @@ $(function() {
                   },
                   dimensions: {
                     width: 80,
-                    height: 80 
+                    height: 80
                   },
                   frame_index: 0,
                   frame_count: 7,
@@ -256,14 +282,14 @@ $(function() {
       });
 
       addSceneNode(bullet);
-    }
+    };
 
     // Renderers
-    var Renders = {          
+    var Renders = {
       DOM: {
         add_nodes: function() {
           _(scene).each(function(node, idx) {
-            if (!node.id) {                            
+            if (!node.id) {
               node.id = GUID();
               $('#playground').append('<div id="'+node.id+'" style="position: absolute; background: url('+node.asset_id+')">');
             }
@@ -291,18 +317,18 @@ $(function() {
         }
       }
     };
-    
+
     var renderScene = function() {
       processQueue();
       _(scene).each(function(scene_node) {
-        if (renderer == 'DOM') Renders.DOM.render(scene_node);        
+        if (renderer == 'DOM') Renders.DOM.render(scene_node);
         if (scene_node.animate) scene_node.animate();
       });
       requestAnimationFrame(renderScene);
     };
 
     // bind input events and attach them to action so we can shoot without stopping the moving. Keyup is not called when another key is pressed
-    var bindKeyboard = function() {      
+    var bindKeyboard = function() {
       document.onkeydown = function(e) {
         e = e || window.event;
         if (e.keyCode == 37) {
@@ -337,11 +363,23 @@ $(function() {
             },
             dimensions: {
               width: 36,
-              height: 40 
+              height: 40
             },
             asset_id: 'Alien/Alien_c.png',
+            attacking: false,
+            shot_bullet: false,
             animate: function() {
-              
+              // decide to attack or not
+              if (!this.attacking && throwDice(0, 15) == 3) {
+                this.attacking = true;
+              }
+
+              if (this.attacking) {
+                if (throwDice(0, 5) == 3) {
+
+                }
+              }
+
             }
           });
 
@@ -361,7 +399,7 @@ $(function() {
     };
 
     var run = function() {
-      renderScene();      
+      renderScene();
     };
 
     return {
@@ -373,5 +411,5 @@ $(function() {
   AssetLoader.load(function() {
     Galaga.init();
     Galaga.run();
-  });  
+  });
 });
