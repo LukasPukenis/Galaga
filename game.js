@@ -84,7 +84,7 @@ $(function() {
       height: 600
     };
 
-    var throwDice = function(from, to) {
+    var throwDice = randomRange = function(from, to) {
       if (from > to) {
         var t = from;
         from = to;
@@ -262,7 +262,6 @@ $(function() {
                       removeSceneNodeById(this.id);
                       this.id = null;
                     }
-                    console.log(' -> ',$('#'+this.id).size());
                   },
                   id: null,
                   asset_id: 'Weapon/Explosion/Explosion_01.png',
@@ -350,6 +349,27 @@ $(function() {
       }
     };
 
+    var calculateEnemyPath = function(source, destination) {
+      return {
+        A: {
+          x: source.before_attack_pos.x,
+          y: source.before_attack_pos.y
+        },
+        P1: {
+          x: source.before_attack_pos.x - 4*randomRange(0 - source.before_attack_pos.x, dims.width - source.before_attack_pos.x),
+          y: source.before_attack_pos.y - randomRange(0 - source.before_attack_pos.y, dims.height - source.before_attack_pos.y)
+        },
+        P2: {
+          x: destination.position.x + randomRange(-100, 100),
+          y: destination.position.y - randomRange(0, 100)
+        },
+        B: {
+          x: destination.position.x,
+          y: destination.position.y
+        }
+      }
+    };
+
     var buildEnemies = function() {
       _(enemiesGrid).each(function(line, index) {
         _(line).each(function(type, idx) {
@@ -367,19 +387,59 @@ $(function() {
             },
             asset_id: 'Alien/Alien_c.png',
             attacking: false,
+            going_back: false,
+            attack_speed: 2000,
+            attack_iteration: 0.0,  // this will go up to 1.0
+            attack_start_time: null,
+            attack_bezier_params: {
+              A: null,
+              P1: null,
+              P2: null,
+              B: null
+            },
+            before_attacking_pos: {
+              x: null,
+              y: null
+            },
             shot_bullet: false,
             animate: function() {
               // decide to attack or not
-              if (!this.attacking && throwDice(0, 15) == 3) {
+              if (!this.attacking && !this.going_back && throwDice(0, 2000) == 1) {
                 this.attacking = true;
+                this.before_attack_pos = {
+                  x: this.position.x,
+                  y: this.position.y
+                },
+                this.attack_start_time = new Date().getTime(),
+                this.attack_bezier_params = calculateEnemyPath(this, getShip());
               }
 
-              if (this.attacking) {
-                if (throwDice(0, 5) == 3) {
+              // fly to attack
+              if ((this.attacking && !this.going_back) || (!this.attacking && this.going_back) ) {
+                var time_diff = new Date().getTime() - this.attack_start_time;
+                var t  = time_diff / this.attack_speed;
 
+                if (t < 1.0) {
+                  var new_x, new_y;
+                  if (this.attacking) {
+                    new_x = bezierCubic(this.attack_bezier_params.A.x, this.attack_bezier_params.P1.x, this.attack_bezier_params.P2.x, this.attack_bezier_params.B.x, t);
+                    new_y = bezierCubic(this.attack_bezier_params.A.y, this.attack_bezier_params.P1.y, this.attack_bezier_params.P2.y, this.attack_bezier_params.B.y, t);
+                  } else {
+                    new_x = bezierCubic(this.attack_bezier_params.B.x, this.attack_bezier_params.P1.x, this.attack_bezier_params.P2.x, this.attack_bezier_params.A.x, t);
+                    new_y = bezierCubic(this.attack_bezier_params.B.y, this.attack_bezier_params.P1.y, this.attack_bezier_params.P2.y, this.attack_bezier_params.A.y, t);
+                  }
+
+                  this.position = { x: new_x, y: new_y };
+                } else if (this.attacking) {
+                  this.attacking = false;
+                  this.going_back = true;
+
+                  this.attack_start_time = new Date().getTime();
+                  this.attack_bezier_params = calculateEnemyPath(this, getShip());
+                } else {
+                  return;
                 }
               }
-
             }
           });
 
