@@ -388,7 +388,7 @@ $(function() {
             asset_id: 'Alien/Alien_c.png',
             attacking: false,
             going_back: false,
-            attack_speed: 2000,
+            attack_speed: 5000,
             attack_iteration: 0.0,  // this will go up to 1.0
             attack_start_time: null,
             attack_bezier_params: {
@@ -425,8 +425,8 @@ $(function() {
                     new_x = bezierCubic(this.attack_bezier_params.A.x, this.attack_bezier_params.P1.x, this.attack_bezier_params.P2.x, this.attack_bezier_params.B.x, t);
                     new_y = bezierCubic(this.attack_bezier_params.A.y, this.attack_bezier_params.P1.y, this.attack_bezier_params.P2.y, this.attack_bezier_params.B.y, t);
                   } else {
-                    new_x = bezierCubic(this.attack_bezier_params.B.x, this.attack_bezier_params.P1.x, this.attack_bezier_params.P2.x, this.attack_bezier_params.A.x, t);
-                    new_y = bezierCubic(this.attack_bezier_params.B.y, this.attack_bezier_params.P1.y, this.attack_bezier_params.P2.y, this.attack_bezier_params.A.y, t);
+                    new_x = bezierCubic(this.attack_bezier_params.B.x, this.attack_bezier_params.P2.x, this.attack_bezier_params.P1.x, this.attack_bezier_params.A.x, t);
+                    new_y = bezierCubic(this.attack_bezier_params.B.y, this.attack_bezier_params.P2.y, this.attack_bezier_params.P1.y, this.attack_bezier_params.A.y, t);
                   }
 
                   this.position = { x: new_x, y: new_y };
