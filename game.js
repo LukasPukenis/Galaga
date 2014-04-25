@@ -63,6 +63,119 @@ $(function() {
     }
   })();
 
+
+  // starfield control
+  var Starfield = (function() {
+    var canvas = document.getElementById('starfield').getContext('2d');
+    var scrolling = false;
+    var width = 800;
+    var height = 800;
+
+    // takes in c=0..255 and forms a gray color of it
+    function grayScale(c) {
+      var r = c << 16;
+      var g = c << 8;
+      var b = c;
+      return r | g | b;
+    };
+
+    // draw a rectangular pixel on canvas with WxH where W==H==size
+    function drawPixel(x, y, color, size) {
+      var a = 255;
+      var r, g, b;
+      if (!color) {
+        r = 0;
+        g = 0;
+        b = 0;
+      } else {
+        r = (color & 0xFF0000) >> 16;
+        g = (color & 0x00FF00) >> 8;
+        b = color & 0x0000FF;
+      }
+
+      if (!size) var size = 3;
+      canvas.fillStyle = "rgba("+r+","+g+","+b+","+(a/255)+")";
+      canvas.fillRect( x, y, size, size);
+    };
+
+    function getLife() {
+      return Math.round(60+Math.random()*20*2);
+    }
+
+    function Star(x, y, brightness) {
+      this.x = x;
+      this.y = y;
+      this.brightness = brightness;
+      this.visible = !!Math.round(Math.random());
+      this.life = getLife();
+      this.originalLife = this.life;
+    }
+
+    var stars = [];
+
+    function generateNewStar() {
+      var x, y, b;
+      x = Math.round(Math.random()*width);
+      y = Math.round(Math.random()*height);
+      b = Math.round(Math.random()*255);
+      return new Star(x, y, b);
+    }
+
+    function render() {
+      stars.forEach(function(star) {
+        star.life--;
+        if (scrolling) star.y += 1 + Math.round(5 / 255 * star.brightness);
+        if (star.visible) {
+          drawPixel(star.x, star.y, ( grayScale(star.brightness)), 3);
+        }
+      });
+    }
+
+    var flipScrolling = function(on) {
+      scrolling = on;
+    };
+
+    function flipVisibility() {
+      return stars.map(function(star) {
+        if (star.visible && star.life == 0) {
+          star.life = star.originalLife;
+          star.visible = false;
+        } else if (!star.visible && star.life == 0) {
+          star.life = star.originalLife;
+          star.visible = true;
+        }
+
+        return star;
+      });
+    }
+
+    function regenerate() {
+      return stars.map(function(star) {
+        if (star.y > height) {
+          star.y = 0
+        }
+      });
+    }
+
+    function animate() {
+      canvas.clearRect(0, 0, width, height);
+      render();
+      flipVisibility();
+      regenerate();
+      requestAnimationFrame(animate);
+    }
+
+    for (var i = 0; i < 100; i++) {
+      stars.push(generateNewStar());
+    }
+
+    animate();
+    return {
+      scroll: flipScrolling
+    }
+  })();
+
+
   var Galaga = (function() {
     var scene = []; // scene objects
     var action = null;  // input action to do
@@ -81,7 +194,7 @@ $(function() {
     var renderer = 'DOM'; // TODO: WebGL
     var dims = {
       width: 800,
-      height: 600
+      height: 800
     };
 
     var throwDice = randomRange = function(from, to) {
@@ -91,24 +204,24 @@ $(function() {
         to = t;
       }
       return from + Math.round(Math.random() * (to-from));
-    }
+    };
 
     // bezier operations
     function lerp(a, b, t) {
       return a + ((b - a) * t);
-    }
+    };
 
     function bezier(a, b, t) {
       return lerp(a, b, t);
-    }
+    };
 
     function bezierQuadratic(a, b, c, t) {
       return bezier(lerp(a, b, t), lerp(b, c, t), t);
-    }
+    };
 
     function bezierCubic(a, b, c, d, t) {
       return bezierQuadratic(lerp(a, b, t), lerp(b, c, t), lerp(c, d, t), t);
-    }
+    };
 
     var prefix = 'galaga_';
     var GUID_i = 0;
@@ -484,6 +597,7 @@ $(function() {
 
   AssetLoader.load(function() {
     Galaga.init();
+    Starfield.scroll(true);
     Galaga.run();
   });
 });

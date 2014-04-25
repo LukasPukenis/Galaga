@@ -7,18 +7,27 @@
     <script src="./game.js"></script>
 
     <style type="text/css">
+      body {
+        padding: 0;
+        margin: 0;
+      }
       #playground {
         position: relative;
-        border: 1px solid black;
         width: 800px;
-        height: 600px;
+        height: 800px;
         overflow: hidden;
+      }
+
+      #starfield {
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: black;
       }
     </style>
   </head>
   <body>
-    <div id="playground">
-
-    </div>
+    <canvas id="starfield" width="800" height="800"></canvas>
+    <div id="playground"></div>
   </body>
 </html>
