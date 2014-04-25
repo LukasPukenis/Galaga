@@ -419,7 +419,7 @@ $(function() {
                 var time_diff = new Date().getTime() - this.attack_start_time;
                 var t  = time_diff / this.attack_speed;
 
-                if (t < 1.0) {
+                if (t <= 1.0) {
                   var new_x, new_y;
                   if (this.attacking) {
                     new_x = bezierCubic(this.attack_bezier_params.A.x, this.attack_bezier_params.P1.x, this.attack_bezier_params.P2.x, this.attack_bezier_params.B.x, t);
