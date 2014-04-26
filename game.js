@@ -182,7 +182,12 @@ $(function() {
 
     var move_step = 10;
     var bullet_step = 10;
+    var enemy_bullet_step = 10;
     var bullet_limit = 2;
+    var lifes = 3;
+    var score = 0;
+    var ship_invincible_time = 3000;  // 3 seconds
+    var ship_hit_time_end = null;
 
     var enemiesGrid = [
       [0,0,0,1,1,1,1,0,0,0],
@@ -249,6 +254,7 @@ $(function() {
       // add ship itself
       scene.push(new SceneNode({
         type: 'ship',
+        was_hit: false, // this indicates that the ship has been hit and so should not be hit again while this is true
         position: {
           x: ((dims.width - 72) / 2),
           y: dims.height - 90
@@ -262,7 +268,15 @@ $(function() {
           height: 90
         },
         id: null,
-        asset_id: 'Ship/Ship_c.png'
+        asset_id: 'Ship/Ship_c.png',
+        animate: function() {
+          if (this.was_hit) {
+            if (new Date().getTime() >= ship_hit_time_end) {
+              this.visible = true;
+              this.was_hit = false;
+            }
+          }
+        }
       }));
 
       // transform asset_id fields to prepend assets folder. No need to write it all over the place
@@ -437,7 +451,10 @@ $(function() {
             Renders.DOM.add_nodes();
           }
 
+          var display = (node.visible === true || typeof node.visible == 'undefined') ? 'block' : 'none';
+
           var styles = {
+            'display': display,
             width:  node.dimensions.width+'px',
             height: node.dimensions.height+'px',
             left: node.position.x+'px',
@@ -507,6 +524,18 @@ $(function() {
       }
     };
 
+    var gameOver = function() {
+
+    };
+
+    var shipWasHit = function() {
+      lifes--;
+      getShip().visible = false;
+      getShip().was_hit = true;
+      ship_hit_time_end = new Date().getTime() + ship_invincible_time;
+      if (lifes <= 0) gameOver();
+    };
+
     var buildEnemies = function() {
       _(enemiesGrid).each(function(line, index) {
         _(line).each(function(type, idx) {
@@ -538,12 +567,86 @@ $(function() {
               x: null,
               y: null
             },
+            shot: false,
             rotation: 0,
             last_x: null,
             last_y: null,
             shot_bullet: false,
 
             animate: function() {
+              // decide to shoot
+              if (this.attacking && !this.shot && throwDice(0, 100) == 1) {
+                this.shot = true;
+
+                var bullet = new SceneNode({
+                  type: 'enemy_bullet',
+                  position: {
+                    x: this.position.x + (this.dimensions.width / 2) - 2,
+                    y: this.position.y - 14
+                  },
+                  dimensions: {
+                    width: 4,
+                    height: 20
+                  },
+                  asset_id: 'Weapon/Alien_bullet.png',
+                  animate: function() {
+                    this.position.y += enemy_bullet_step;
+
+                    // check for collision. If enemy is hit then shot array will have it's ID
+                    var ship = getShip();
+                    var xcoll = this.position.x >= ship.position.x && this.position.x <= ship.position.x+ship.dimensions.width;
+                    var ycoll = this.position.y >= ship.position.y && this.position.y <= ship.position.y+ship.dimensions.height;
+
+                    var hit = false;
+                    if (xcoll && ycoll) {
+                      removeSceneNodeById(this.id);
+                      hit = true;
+                    }
+
+                    if (!ship.was_hit && hit) {
+                      hit = false;
+                      var explosion = new SceneNode({
+                        type: 'explosion',
+                        position: {
+                          x: ship.position.x + (ship.dimensions.width / 2),
+                          y: ship.position.y + (ship.dimensions.height / 2)
+                        },
+                        dimensions: {
+                          width: 80,
+                          height: 80
+                        },
+                        frame_index: 0,
+                        frame_count: 7,
+
+                        animate: function() {
+                          this.frame_index++;
+                          this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
+
+                          if (renderer = 'DOM') {
+                            Renders.DOM.updateCSS(this.id, {
+                              background: 'url("'+this.asset_id+'")',
+                            });
+                          }
+
+                          if (this.frame_index > this.frame_count) {
+                            removeSceneNodeById(this.id);
+                            this.id = null;
+                          }
+                        },
+                        id: null,
+                        asset_id: 'Weapon/Explosion/Explosion_01.png',
+                      });
+
+                      transformAssets();
+                      shipWasHit();
+                      addSceneNode(explosion);
+                    }
+                  }
+                });
+
+                addSceneNode(bullet);
+              }
+
               // decide to attack or not
               if (!this.attacking && !this.going_back && throwDice(0, 2000) == 1) {
                 this.attacking = true;
@@ -562,6 +665,7 @@ $(function() {
                 var ship = getShip();
                 var ship_pos = ship.position;
                 var last_pos = ship.last_pos;
+
                 // TODO: somehow play with t so to correct the paths of enemies when ship is moving
                 if (ship_pos.x - last_pos.x != 0 || ship_pos.y - last_pos.y != 0) {
                   t  = time_diff / (this.attack_speed + 4000);
