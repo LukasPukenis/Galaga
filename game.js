@@ -620,18 +620,20 @@ $(function() {
               // check to see if enemy itself didnt hit the ship
               var ship = getShip();
 
-              var r1 = ship.position;
-              var r2 = this.position;
+              if (!ship.was_hit) {
+                var r1 = ship.position;
+                var r2 = this.position;
 
-              r1.right = r1.x + ship.dimensions.width;
-              r1.bottom = r1.y + ship.dimensions.height;
+                r1.right = r1.x + ship.dimensions.width;
+                r1.bottom = r1.y + ship.dimensions.height;
 
-              r2.right = r2.x + this.dimensions.width;
-              r2.bottom = r2.y + this.dimensions.height;
+                r2.right = r2.x + this.dimensions.width;
+                r2.bottom = r2.y + this.dimensions.height;
 
-              if (!(r1.right < r2.x || r2.right < r1.x || r1.bottom < r2.y || r2.bottom < r1.y )) {
-                removeSceneNodeById(this.id);
-                shipWasHit();
+                if (!(r1.right < r2.x || r2.right < r1.x || r1.bottom < r2.y || r2.bottom < r1.y )) {
+                  removeSceneNodeById(this.id);
+                  shipWasHit();
+                }
               }
 
               // decide to shoot
@@ -688,7 +690,7 @@ $(function() {
 
                 // TODO: somehow play with t so to correct the paths of enemies when ship is moving
                 if (ship_pos.x - last_pos.x != 0 || ship_pos.y - last_pos.y != 0) {
-                  t  = time_diff / (this.attack_speed + 4000);
+                //  t  = time_diff / (this.attack_speed + 4000);
                 }
 
                 if (t <= 1.0) {
