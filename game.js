@@ -182,6 +182,7 @@ $(function() {
 
     var move_step = 10;
     var bullet_step = 10;
+    var bullet_limit = 2;
 
     var enemiesGrid = [
       [0,0,0,1,1,1,1,0,0,0],
@@ -325,6 +326,12 @@ $(function() {
 
     var shoot = function() {
       var ship = getShip();
+      var bullet_count = _(scene).reduce(function(count, node) {
+        if (node.type == 'bullet') return count + 1;
+        return count;
+      }, 0);
+
+      if (bullet_count >= bullet_limit) return false;
 
       var bullet = new SceneNode({
         type: 'bullet',
