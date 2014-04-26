@@ -252,6 +252,10 @@ $(function() {
           x: ((dims.width - 72) / 2),
           y: dims.height - 90
         },
+        last_pos: {
+          x: ((dims.width - 72) / 2),
+          y: dims.height - 90
+        },
         dimensions: {
           width: 72,
           height: 90
@@ -294,12 +298,20 @@ $(function() {
     // keyboard actions
     var moveLeft = function() {
       var ship = getShip();
+      ship.last_pos = {
+        x: ship.position.x,
+        y: ship.position.y
+      };
       ship.position.x -= move_step;
       if (ship.position.x < 0) ship.position.x = 0;
     };
 
     var moveRight = function() {
       var ship = getShip();
+      ship.last_pos = {
+        x: ship.position.x,
+        y: ship.position.y
+      };
       ship.position.x += move_step;
       if (ship.position.x > dims.width - ship.dimensions.width) ship.position.x = dims.width - ship.dimensions.width;
     };
@@ -423,7 +435,10 @@ $(function() {
             height: node.dimensions.height+'px',
             left: node.position.x+'px',
             top: node.position.y +'px',
-            '-webkit-transform': 'rotate(' + node.rotation+'deg'+')'
+            // crossbrowser DOM rotate
+            '-webkit-transform': 'rotate(' + node.rotation+'deg'+')',
+            'transform': 'rotate(' + node.rotation+'deg'+')',
+            '-ms-transform': 'rotate(' + node.rotation+'deg'+')'
           };
 
           $('#playground').find('#'+node.id).css(styles);
@@ -444,9 +459,10 @@ $(function() {
     var bindKeyboard = function() {
       document.onkeydown = function(e) {
         e = e || window.event;
-        if (e.keyCode == 37) {
+
+        if (action == null && e.keyCode == 37) {
           action = moveLeft;
-        } else if (e.keyCode == 39) {
+        } else if (action == null && e.keyCode == 39) {
           action = moveRight;
         } else if (e.keyCode == 32) {
           shoot();
@@ -470,12 +486,12 @@ $(function() {
           y: source.before_attack_pos.y
         },
         P1: {
-          x: source.before_attack_pos.x - 4*randomRange(0 - source.before_attack_pos.x, dims.width - source.before_attack_pos.x),
-          y: source.before_attack_pos.y - randomRange(0 - source.before_attack_pos.y, dims.height - source.before_attack_pos.y)
+          x: randomRange(-500, 500) + source.before_attack_pos.x - randomRange(0 - source.before_attack_pos.x, dims.width - source.before_attack_pos.x),
+          y: randomRange(-500, 500) + source.before_attack_pos.y - randomRange(0 - source.before_attack_pos.y, dims.height - source.before_attack_pos.y)
         },
         P2: {
-          x: destination.position.x + randomRange(-100, 100),
-          y: destination.position.y - randomRange(0, 100)
+          x: randomRange(-500, 500) + destination.position.x,
+          y: randomRange(-500, 500) + destination.position.y
         },
         B: {
           x: destination.position.x,
@@ -536,6 +552,13 @@ $(function() {
               if ((this.attacking && !this.going_back) || (!this.attacking && this.going_back) ) {
                 var time_diff = new Date().getTime() - this.attack_start_time;
                 var t  = time_diff / this.attack_speed;
+                var ship = getShip();
+                var ship_pos = ship.position;
+                var last_pos = ship.last_pos;
+                // TODO: somehow play with t so to correct the paths of enemies when ship is moving
+                if (ship_pos.x - last_pos.x != 0 || ship_pos.y - last_pos.y != 0) {
+                  t  = time_diff / (this.attack_speed + 4000);
+                }
 
                 if (t <= 1.0) {
                   var new_x, new_y;
