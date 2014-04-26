@@ -617,6 +617,23 @@ $(function() {
             shot_bullet: false,
 
             animate: function() {
+              // check to see if enemy itself didnt hit the ship
+              var ship = getShip();
+
+              var r1 = ship.position;
+              var r2 = this.position;
+
+              r1.right = r1.x + ship.dimensions.width;
+              r1.bottom = r1.y + ship.dimensions.height;
+
+              r2.right = r2.x + this.dimensions.width;
+              r2.bottom = r2.y + this.dimensions.height;
+
+              if (!(r1.right < r2.x || r2.right < r1.x || r1.bottom < r2.y || r2.bottom < r1.y )) {
+                removeSceneNodeById(this.id);
+                shipWasHit();
+              }
+
               // decide to shoot
               if (this.attacking && !this.shot && throwDice(0, 100) == 1) {
                 this.shot = true;
