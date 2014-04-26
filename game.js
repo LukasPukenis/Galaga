@@ -274,6 +274,7 @@ $(function() {
             if (new Date().getTime() >= ship_hit_time_end) {
               this.visible = true;
               this.was_hit = false;
+              this.position.x = ((dims.width - 72) / 2);
             }
           }
         }
@@ -340,6 +341,7 @@ $(function() {
 
     var shoot = function() {
       var ship = getShip();
+      if (ship.was_hit) return false;
       var bullet_count = _(scene).reduce(function(count, node) {
         if (node.type == 'bullet') return count + 1;
         return count;
@@ -530,10 +532,51 @@ $(function() {
 
     var shipWasHit = function() {
       lifes--;
-      getShip().visible = false;
-      getShip().was_hit = true;
-      ship_hit_time_end = new Date().getTime() + ship_invincible_time;
       if (lifes <= 0) gameOver();
+
+      var ship = getShip();
+
+      ship.visible = false;
+      ship.was_hit = true;
+      ship_hit_time_end = new Date().getTime() + ship_invincible_time;
+
+      if (!ship.was_hit && hit) {
+        hit = false;
+        var explosion = new SceneNode({
+          type: 'explosion',
+          position: {
+            x: ship.position.x + (ship.dimensions.width / 2),
+            y: ship.position.y + (ship.dimensions.height / 2)
+          },
+          dimensions: {
+            width: 80,
+            height: 80
+          },
+          frame_index: 0,
+          frame_count: 7,
+
+          animate: function() {
+            this.frame_index++;
+            this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
+
+            if (renderer = 'DOM') {
+              Renders.DOM.updateCSS(this.id, {
+                background: 'url("'+this.asset_id+'")',
+              });
+            }
+
+            if (this.frame_index > this.frame_count) {
+              removeSceneNodeById(this.id);
+              this.id = null;
+            }
+          },
+          id: null,
+          asset_id: 'Weapon/Explosion/Explosion_01.png',
+        });
+
+        transformAssets();
+        addSceneNode(explosion);
+      }
     };
 
     var buildEnemies = function() {
@@ -597,49 +640,9 @@ $(function() {
                     var xcoll = this.position.x >= ship.position.x && this.position.x <= ship.position.x+ship.dimensions.width;
                     var ycoll = this.position.y >= ship.position.y && this.position.y <= ship.position.y+ship.dimensions.height;
 
-                    var hit = false;
                     if (xcoll && ycoll) {
                       removeSceneNodeById(this.id);
-                      hit = true;
-                    }
-
-                    if (!ship.was_hit && hit) {
-                      hit = false;
-                      var explosion = new SceneNode({
-                        type: 'explosion',
-                        position: {
-                          x: ship.position.x + (ship.dimensions.width / 2),
-                          y: ship.position.y + (ship.dimensions.height / 2)
-                        },
-                        dimensions: {
-                          width: 80,
-                          height: 80
-                        },
-                        frame_index: 0,
-                        frame_count: 7,
-
-                        animate: function() {
-                          this.frame_index++;
-                          this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
-
-                          if (renderer = 'DOM') {
-                            Renders.DOM.updateCSS(this.id, {
-                              background: 'url("'+this.asset_id+'")',
-                            });
-                          }
-
-                          if (this.frame_index > this.frame_count) {
-                            removeSceneNodeById(this.id);
-                            this.id = null;
-                          }
-                        },
-                        id: null,
-                        asset_id: 'Weapon/Explosion/Explosion_01.png',
-                      });
-
-                      transformAssets();
                       shipWasHit();
-                      addSceneNode(explosion);
                     }
                   }
                 });
