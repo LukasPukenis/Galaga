@@ -41,6 +41,8 @@ $(function() {
       './Weapon/Explosion/Explosion_07.png'
     ];
 
+    var LoadedAssets = [];
+
     var load = function(callback) {
       var images = [];
       var size = asset_paths.length;
@@ -55,18 +57,23 @@ $(function() {
           }
         }
         img.src = assets + asset + '?'+Math.random();
+        LoadedAssets.push({
+          path: asset,
+          image: img
+        });
       });
     };
 
     return {
-      load: load
+      load: load,
+      assets: LoadedAssets
     }
   })();
 
 
   // starfield control
   var Starfield = (function() {
-    var canvas = document.getElementById('starfield').getContext('2d');
+    var canvas = document.getElementById('canvas').getContext('2d');
     var scrolling = false;
     var width = 800;
     var height = 800;
@@ -180,6 +187,9 @@ $(function() {
     var scene = []; // scene objects
     var action = null;  // input action to do
 
+    var canvas = document.getElementById('playground');
+    var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
     var move_step = 10;
     var bullet_step = 10;
     var enemy_bullet_step = 10;
@@ -197,7 +207,7 @@ $(function() {
       [1,1,1,1,1,1,1,1,1,1]
     ];
 
-    var renderer = 'DOM'; // TODO: WebGL
+    var renderer = 'GL';
     var dims = {
       width: 800,
       height: 800
@@ -287,7 +297,7 @@ $(function() {
     var removeSceneNode = function(idx, id) {
       scene.splice(idx, 1);
       if (typeof id !== undefined) {
-        if (renderer == 'DOM') Renders.DOM.cleanNode(id);
+        if (renderer == 'GL') Renders.GL.cleanNode(id);
       }
     };
 
@@ -295,7 +305,7 @@ $(function() {
       scene = _(scene).reject(function(node) {
         return node.id == id;
       });
-      if (renderer == 'DOM') Renders.DOM.cleanNode(id);
+      if (renderer == 'GL') Renders.GL.cleanNode(id);
     };
 
     var addSceneNode = function(node) {
@@ -400,8 +410,8 @@ $(function() {
                     this.frame_index++;
                     this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
 
-                    if (renderer = 'DOM') {
-                      Renders.DOM.updateCSS(this.id, {
+                    if (renderer == 'GL') {
+                      Renders.GL.updateCSS(this.id, {
                         background: 'url("'+this.asset_id+'")',
                       });
                     }
@@ -433,14 +443,36 @@ $(function() {
 
     // Renderers
     var Renders = {
-      DOM: {
+      GL: {
         add_nodes: function() {
           _(scene).each(function(node, idx) {
             if (!node.id) {
               node.id = GUID();
-              $('#playground').append('<div id="'+node.id+'" style="position: absolute; background: url('+node.asset_id+')">');
             }
           });
+        },
+        setRectangle: function(gl, x, y, width, height) {
+          var x1 = x;
+          var x2 = x + width;
+          var y1 = y;
+          var y2 = y + height;
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+             x1, y1,
+             x2, y1,
+             x1, y2,
+             x1, y2,
+             x2, y1,
+             x2, y2]), gl.STATIC_DRAW);
+        },
+        init: function() {
+
+          // setup GLSL program
+          vertexShader = createShaderFromScriptElement(gl, "2d-vertex-shader");
+          fragmentShader = createShaderFromScriptElement(gl, "2d-fragment-shader");
+          program = createProgram(gl, [vertexShader, fragmentShader]);
+          gl.useProgram(program);
+
+          Renders.GL.initialized = true;
         },
         updateCSS: function(id, options) {
           $('#playground').find('#'+id).css(options);
@@ -449,25 +481,61 @@ $(function() {
           $('#playground').find('#'+node_id).remove();
         },
         render: function(node) {
-          if (renderer = 'DOM') {
-            Renders.DOM.add_nodes();
-          }
+          if (!Renders.GL.initialized) Renders.GL.init();
 
-          var display = (node.visible === true || typeof node.visible == 'undefined') ? 'block' : 'none';
+          Renders.GL.add_nodes();
 
-          var styles = {
-            'display': display,
-            width:  node.dimensions.width+'px',
-            height: node.dimensions.height+'px',
-            left: node.position.x+'px',
-            top: node.position.y +'px',
-            // crossbrowser DOM rotate
-            '-webkit-transform': 'rotate(' + node.rotation+'deg'+')',
-            'transform': 'rotate(' + node.rotation+'deg'+')',
-            '-ms-transform': 'rotate(' + node.rotation+'deg'+')'
-          };
+          var image = _(AssetLoader.assets).find(function(asset) {
+            return (assets+asset.path).replace('/./', '/') == node.asset_id;
+          }).image;
 
-          $('#playground').find('#'+node.id).css(styles);
+          // look up where the vertex data needs to go.
+          var positionLocation = gl.getAttribLocation(program, "a_position");
+          var texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+
+          // provide texture coordinates for the rectangle.
+          var texCoordBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+              0.0,  0.0,
+              1.0,  0.0,
+              0.0,  1.0,
+              0.0,  1.0,
+              1.0,  0.0,
+              1.0,  1.0]), gl.STATIC_DRAW);
+          gl.enableVertexAttribArray(texCoordLocation);
+          gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+          // Create a texture.
+          var texture = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+
+          // Set the parameters so we can render any size image.
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+          // Upload the image into the texture.
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+          // lookup uniforms
+          var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+
+          // set the resolution
+          gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+
+          // Create a buffer for the position of the rectangle corners.
+          var buffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.enableVertexAttribArray(positionLocation);
+          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+          // Set a rectangle the same size as the image.
+          this.setRectangle(gl, node.position.x, node.position.y, image.width, image.height);
+
+          // Draw the rectangle.
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
       }
     };
@@ -475,7 +543,7 @@ $(function() {
     var renderScene = function() {
       processQueue();
       _(scene).each(function(scene_node) {
-        if (renderer == 'DOM') Renders.DOM.render(scene_node);
+        if (renderer == 'GL') Renders.GL.render(scene_node);
         if (scene_node.animate) scene_node.animate();
       });
       requestAnimationFrame(renderScene);
@@ -559,8 +627,8 @@ $(function() {
             this.frame_index++;
             this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
 
-            if (renderer = 'DOM') {
-              Renders.DOM.updateCSS(this.id, {
+            if (renderer == 'GL') {
+              Renders.GL.updateCSS(this.id, {
                 background: 'url("'+this.asset_id+'")',
               });
             }
