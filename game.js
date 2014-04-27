@@ -199,6 +199,7 @@ $(function() {
     var ship_invincible_time = 3000;  // 3 seconds
     var ship_hit_time_end = null;
 
+    var start_time = new Date().getTime();
     var enemiesGrid = [
       [0,0,0,1,1,1,1,0,0,0],
       [0,0,2,2,2,2,2,2,0,0],
@@ -534,6 +535,9 @@ $(function() {
           var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
           var rotation = gl.getUniformLocation(program, "u_rotation");
           var center = gl.getUniformLocation(program, "u_center");
+          var time_passed = gl.getUniformLocation(program, "u_time");
+
+          gl.uniform1f(time_passed, (new Date().getTime() - start_time) / 1000);
 
           // set the resolution
           gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
@@ -794,8 +798,6 @@ $(function() {
                   if (this.last_x && this.last_y) {
                     this.rotation = Math.atan2( this.last_y-new_y, this.last_x-new_x);
                     this.rotation =  this.rotation + Math.PI/2.0; // radians -> angle
-                    // this.rotation = this.rotation * 180 / Math.PI; // radians -> angle
-                    // this.rotation -= 90;
                   }
                   this.last_x = new_x;
                   this.last_y = new_y;
