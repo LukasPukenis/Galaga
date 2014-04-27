@@ -17,6 +17,7 @@ $(function() {
       './Alien/Alien_rr.png',
       './Objects/Powerup_life.png',
       './Objects/Powerup_generic.png',
+      './Objects/Game_over.png',
       './Light/Particle.png',
       './Light/Light_blue_omni.png',
       './Light/Light_red_omni.png',
@@ -196,6 +197,7 @@ $(function() {
     var bullet_limit = 2;
     var lifes = 3;
     var score = 0;
+    var game_over = false;
     var ship_invincible_time = 3000;  // 3 seconds
     var ship_hit_time_end = null;
 
@@ -262,6 +264,28 @@ $(function() {
 
     var buildScene = function() {
 
+      // add hearts
+      for (var i = 0; i < lifes; i++) {
+        scene.push(new SceneNode({
+          type: 'object',
+          id: null,
+          life: i,
+          position: {
+            x: dims.width - (i*36),
+            y: 0
+          },
+          dimensions: {
+            width: 36,
+            height: 28
+          },
+          asset_id: 'Objects/Powerup_life.png',
+          animate: function() {
+            if (lifes == this.life)
+            removeSceneNodeById(this.id);
+          }
+        }));
+      }
+
       // add ship itself
       scene.push(new SceneNode({
         type: 'ship',
@@ -281,7 +305,7 @@ $(function() {
         id: null,
         asset_id: 'Ship/Ship_c.png',
         animate: function() {
-          if (this.was_hit) {
+           if (this.was_hit && lifes > 0) {
             if (new Date().getTime() >= ship_hit_time_end) {
               this.visible = true;
               this.was_hit = false;
@@ -497,9 +521,10 @@ $(function() {
 
           Renders.GL.add_nodes();
 
-          var image = _(AssetLoader.assets).find(function(asset) {
+          var asset_entry = _(AssetLoader.assets).find(function(asset) {
             return (assets+asset.path).replace('/./', '/') == node.asset_id;
-          }).image;
+          });
+          var image = asset_entry.image;
 
           // look up where the vertex data needs to go.
           var positionLocation = gl.getAttribLocation(program, "a_position");
@@ -624,12 +649,29 @@ $(function() {
     };
 
     var gameOver = function() {
-
+      scene.push(new SceneNode({
+        type: 'object',
+        asset_id: 'Objects/Game_over.png',
+        id: null,
+        position: {
+          x: (dims.width - 362) / 2,
+          y: (dims.height - 63) / 2
+        },
+        dimensions: {
+          width: 362,
+          height: 63
+        }
+      }));
+      game_over = true;
+      transformAssets();
     };
 
     var shipWasHit = function() {
       lifes--;
-      if (lifes <= 0) gameOver();
+
+      if (lifes <= 0) {
+        gameOver();
+      }
 
       var ship = getShip();
 
@@ -637,13 +679,13 @@ $(function() {
       ship.was_hit = true;
       ship_hit_time_end = new Date().getTime() + ship_invincible_time;
 
-      if (!ship.was_hit && hit) {
+      if (ship.was_hit) {
         hit = false;
         var explosion = new SceneNode({
           type: 'explosion',
           position: {
-            x: ship.position.x + (ship.dimensions.width / 2),
-            y: ship.position.y + (ship.dimensions.height / 2)
+            x: ship.position.x + ((ship.dimensions.width - 80) / 2),
+            y: ship.position.y + ((ship.dimensions.height - 80) / 2)
           },
           dimensions: {
             width: 80,
@@ -734,7 +776,7 @@ $(function() {
               }
 
               // decide to shoot
-              if (this.attacking && !this.shot && throwDice(0, 1000) == 1) {
+              if (!game_over && this.attacking && !this.shot && throwDice(0, 1000) == 1) {
                 this.shot = true;
 
                 var bullet = new SceneNode({
@@ -767,7 +809,7 @@ $(function() {
               }
 
               // decide to attack or not
-              if (!this.attacking && !this.going_back && throwDice(0, 2000) == 1) {
+              if (!game_over && !this.attacking && !this.going_back && throwDice(0, 2000) == 1) {
                 this.attacking = true;
                 this.before_attack_pos = {
                   x: this.position.x,
