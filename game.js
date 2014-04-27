@@ -452,10 +452,10 @@ $(function() {
           });
         },
         setRectangle: function(gl, x, y, width, height) {
-          var x1 = x;
-          var x2 = x + width;
-          var y1 = y;
-          var y2 = y + height;
+          var x1 = -width/2.0;
+          var x2 = width/2.0;
+          var y1 = -height/2.0;
+          var y2 = height/2.0;
           gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
              x1, y1,
              x2, y1,
@@ -527,6 +527,7 @@ $(function() {
           // lookup uniforms
           var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
           var rotation = gl.getUniformLocation(program, "u_rotation");
+          var center = gl.getUniformLocation(program, "u_center");
 
           // set the resolution
           gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
@@ -536,6 +537,11 @@ $(function() {
           } else {
             gl.uniform1f(rotation, node.rotation);
           }
+
+          var center_x = node.position.x + (node.dimensions.width / 2);
+          var center_y = node.position.y + (node.dimensions.height / 2);
+
+          gl.uniform2f(center, center_x, center_y);
 
           // Create a buffer for the position of the rectangle corners.
           var buffer = gl.createBuffer();
@@ -780,6 +786,7 @@ $(function() {
 
                   if (this.last_x && this.last_y) {
                     this.rotation = Math.atan2( this.last_y-new_y, this.last_x-new_x);
+                    this.rotation =  this.rotation + Math.PI/2.0; // radians -> angle
                     // this.rotation = this.rotation * 180 / Math.PI; // radians -> angle
                     // this.rotation -= 90;
                   }
