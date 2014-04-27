@@ -472,6 +472,10 @@ $(function() {
           program = createProgram(gl, [vertexShader, fragmentShader]);
           gl.useProgram(program);
 
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+          gl.disable(gl.DEPTH_TEST);
+
           Renders.GL.initialized = true;
         },
         updateCSS: function(id, options) {
@@ -482,6 +486,7 @@ $(function() {
         },
         render: function(node) {
           if (!Renders.GL.initialized) Renders.GL.init();
+          if (node.visible === false) return;
 
           Renders.GL.add_nodes();
 
@@ -521,9 +526,16 @@ $(function() {
 
           // lookup uniforms
           var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+          var rotation = gl.getUniformLocation(program, "u_rotation");
 
           // set the resolution
           gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+
+          if ( !isNaN(parseInt(node.rotation))) {
+            gl.uniform1f(rotation, node.rotation);
+          } else {
+            gl.uniform1f(rotation, node.rotation);
+          }
 
           // Create a buffer for the position of the rectangle corners.
           var buffer = gl.createBuffer();
@@ -768,8 +780,8 @@ $(function() {
 
                   if (this.last_x && this.last_y) {
                     this.rotation = Math.atan2( this.last_y-new_y, this.last_x-new_x);
-                    this.rotation = this.rotation * 180 / Math.PI;
-                    this.rotation -= 90;
+                    // this.rotation = this.rotation * 180 / Math.PI; // radians -> angle
+                    // this.rotation -= 90;
                   }
                   this.last_x = new_x;
                   this.last_y = new_y;
