@@ -469,7 +469,13 @@ $(function() {
           // setup GLSL program
           vertexShader = createShaderFromScriptElement(gl, "2d-vertex-shader");
           fragmentShader = createShaderFromScriptElement(gl, "2d-fragment-shader");
+
+          tvVertexShader = createShaderFromScriptElement(gl, "2d-tv-vertex-shader");
+          tvFragmentShader = createShaderFromScriptElement(gl, "2d-tv-fragment-shader");
+
           program = createProgram(gl, [vertexShader, fragmentShader]);
+          tvProgram = createProgram (gl, [tvVertexShader, tvFragmentShader]);
+
           gl.useProgram(program);
 
           gl.enable(gl.BLEND);
@@ -535,7 +541,7 @@ $(function() {
           if ( !isNaN(parseInt(node.rotation))) {
             gl.uniform1f(rotation, node.rotation);
           } else {
-            gl.uniform1f(rotation, node.rotation);
+            gl.uniform1f(rotation, 0);
           }
 
           var center_x = node.position.x + (node.dimensions.width / 2);
@@ -564,6 +570,7 @@ $(function() {
         if (renderer == 'GL') Renders.GL.render(scene_node);
         if (scene_node.animate) scene_node.animate();
       });
+
       requestAnimationFrame(renderScene);
     };
 
