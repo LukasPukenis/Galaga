@@ -587,7 +587,7 @@ $(function() {
           var enemy = new SceneNode({
             type: 'enemy',
             position: {
-              x: ((dims.width / 2) - (line.length * 40 / 1.8)) + idx * 1.2 * 40,
+              x: ((dims.width / 2) - (line.length * 40 / 1.4)) + idx * 1.4 * 40,
               y: index * 48
             },
             dimensions: {
@@ -637,7 +637,7 @@ $(function() {
               }
 
               // decide to shoot
-              if (this.attacking && !this.shot && throwDice(0, 100) == 1) {
+              if (this.attacking && !this.shot && throwDice(0, 1000) == 1) {
                 this.shot = true;
 
                 var bullet = new SceneNode({
@@ -687,11 +687,6 @@ $(function() {
                 var ship = getShip();
                 var ship_pos = ship.position;
                 var last_pos = ship.last_pos;
-
-                // TODO: somehow play with t so to correct the paths of enemies when ship is moving
-                if (ship_pos.x - last_pos.x != 0 || ship_pos.y - last_pos.y != 0) {
-                //  t  = time_diff / (this.attack_speed + 4000);
-                }
 
                 if (t <= 1.0) {
                   var new_x, new_y;
