@@ -630,12 +630,12 @@ $(function() {
     var calculateEnemyPath = function(source, destination) {
       return {
         A: {
-          x: source.before_attack_pos.x,
-          y: source.before_attack_pos.y
+          x: source.position.x,
+          y: source.position.y
         },
         P1: {
-          x: randomRange(-500, 500) + source.before_attack_pos.x - randomRange(0 - source.before_attack_pos.x, dims.width - source.before_attack_pos.x),
-          y: randomRange(-500, 500) + source.before_attack_pos.y - randomRange(0 - source.before_attack_pos.y, dims.height - source.before_attack_pos.y)
+          x: randomRange(-500, 500) + source.position.x,
+          y: randomRange(-500, 500) + source.position.y
         },
         P2: {
           x: randomRange(-500, 500) + destination.position.x,
@@ -809,7 +809,7 @@ $(function() {
               }
 
               // decide to attack or not
-              if (!game_over && !this.attacking && !this.going_back && throwDice(0, 2000) == 1) {
+              if (!game_over && !this.attacking && !this.going_back && throwDice(0, 3000) == 1) {
                 this.attacking = true;
                 this.before_attack_pos = {
                   x: this.position.x,
@@ -822,7 +822,8 @@ $(function() {
               // fly to attack
               if ((this.attacking && !this.going_back) || (!this.attacking && this.going_back) ) {
                 var time_diff = new Date().getTime() - this.attack_start_time;
-                var t  = time_diff / this.attack_speed;
+                var t = time_diff / this.attack_speed;
+
                 var ship = getShip();
                 var ship_pos = ship.position;
                 var last_pos = ship.last_pos;
@@ -839,7 +840,7 @@ $(function() {
 
                   if (this.last_x && this.last_y) {
                     this.rotation = Math.atan2( this.last_y-new_y, this.last_x-new_x);
-                    this.rotation =  this.rotation + Math.PI/2.0; // radians -> angle
+                    this.rotation = this.rotation + Math.PI / 2.0; // radians -> angle
                   }
                   this.last_x = new_x;
                   this.last_y = new_y;
@@ -850,7 +851,9 @@ $(function() {
                   this.going_back = true;
 
                   this.attack_start_time = new Date().getTime();
-                  this.attack_bezier_params = calculateEnemyPath(this, getShip());
+                  this.attack_bezier_params = calculateEnemyPath({
+                    position: this.before_attack_pos
+                  }, this);
                 } else {
                   this.rotation = 0;
                   return;
