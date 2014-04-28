@@ -39,7 +39,8 @@ $(function() {
       './Weapon/Explosion/Explosion_02.png',
       './Weapon/Explosion/Explosion_04.png',
       './Weapon/Explosion/Explosion_06.png',
-      './Weapon/Explosion/Explosion_07.png'
+      './Weapon/Explosion/Explosion_07.png',
+      './noise.png'
     ];
 
     var LoadedAssets = [];
@@ -76,8 +77,8 @@ $(function() {
   var Starfield = (function() {
     var canvas = document.getElementById('canvas').getContext('2d');
     var scrolling = false;
-    var width = 800;
-    var height = 800;
+    var width = 1024;
+    var height = 1024;
 
     // takes in c=0..255 and forms a gray color of it
     function grayScale(c) {
@@ -212,8 +213,8 @@ $(function() {
 
     var renderer = 'GL';
     var dims = {
-      width: 800,
-      height: 800
+      width: 1024,
+      height: 1024
     };
 
     var throwDice = randomRange = function(from, to) {
@@ -469,6 +470,11 @@ $(function() {
     // Renderers
     var Renders = {
       GL: {
+        tvFramebuffer: null,
+        tvTexture: null,
+        tvRenderBuffer: null,
+        tvProgram: null,
+        tvNoiseTex: null,
         add_nodes: function() {
           _(scene).each(function(node, idx) {
             if (!node.id) {
@@ -489,18 +495,60 @@ $(function() {
              x2, y1,
              x2, y2]), gl.STATIC_DRAW);
         },
-        init: function() {
+
+        createRenderBuffer: function () {
+             // create shaders for tv render
+             this.tvVertexShader = createShaderFromScriptElement(gl, "2d-tv-vertex-shader");
+             this.tvFragmentShader = createShaderFromScriptElement(gl, "2d-tv-fragment-shader");
+             this.tvProgram = createProgram (gl, [this.tvVertexShader, this.tvFragmentShader]);
+
+             // create frame buffer
+             this.tvFramebuffer = gl.createFramebuffer();
+             gl.bindFramebuffer(gl.FRAMEBUFFER, this.tvFramebuffer);
+
+             // create frame texture
+             this.tvTexture = gl.createTexture();
+             gl.bindTexture(gl.TEXTURE_2D, this.tvTexture);
+             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+             // bind frame buffer to frame texture
+             gl.texImage2D (gl.TEXTURE_2D, 0, gl.RGBA, 1024, 1024, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+             // add depth buffer
+
+             this.tvRenderBuffer = gl.createRenderbuffer();
+             gl.bindRenderbuffer (gl.RENDERBUFFER, this.tvRenderBuffer);
+             gl.renderbufferStorage (gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 1024, 1024);
+
+             // attach texture and render buffer to frame buffer object
+             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tvTexture, 0);
+             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.tvRenderBuffer);
+
+             // rebind defaults
+             gl.bindTexture(gl.TEXTURE_2D, null);
+             gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+             var image = _(AssetLoader.assets).find (function (asset) { return asset.path == './noise.png'; }).image;
+
+             this.tvNoiseTex = gl.createTexture ();
+             gl.bindTexture(gl.TEXTURE_2D, this.tvNoiseTex);
+             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+             gl.texImage2D (gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      },
+       init: function() {
+          this.startTime = (new Date ()).getTime ();
+          this.createRenderBuffer ();
+
+          gl.bindTexture(gl.TEXTURE_2D, null);
 
           // setup GLSL program
           vertexShader = createShaderFromScriptElement(gl, "2d-vertex-shader");
           fragmentShader = createShaderFromScriptElement(gl, "2d-fragment-shader");
 
-          tvVertexShader = createShaderFromScriptElement(gl, "2d-tv-vertex-shader");
-          tvFragmentShader = createShaderFromScriptElement(gl, "2d-tv-fragment-shader");
-
           program = createProgram(gl, [vertexShader, fragmentShader]);
-          tvProgram = createProgram (gl, [tvVertexShader, tvFragmentShader]);
-
           gl.useProgram(program);
 
           gl.enable(gl.BLEND);
@@ -508,6 +556,15 @@ $(function() {
           gl.disable(gl.DEPTH_TEST);
 
           Renders.GL.initialized = true;
+        },
+        startFrame: function () {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.tvFramebuffer);
+            gl.clearColor (0.0, 0.0, 0.0, 1.0);
+            gl.clear (gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+        },
+        endFrame: function () {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            this.renderTvTexture () ;
         },
         updateCSS: function(id, options) {
           $('#playground').find('#'+id).css(options);
@@ -542,6 +599,7 @@ $(function() {
               1.0,  1.0]), gl.STATIC_DRAW);
           gl.enableVertexAttribArray(texCoordLocation);
           gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+          gl.activeTexture(gl.TEXTURE0);
 
           // Create a texture.
           var texture = gl.createTexture();
@@ -555,6 +613,8 @@ $(function() {
 
           // Upload the image into the texture.
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+          gl.useProgram(program);
 
           // lookup uniforms
           var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
@@ -589,17 +649,73 @@ $(function() {
 
           // Draw the rectangle.
           gl.drawArrays(gl.TRIANGLES, 0, 6);
+        },
+
+        renderTvTexture: function () {
+          gl.clearColor (0.0, 0.0, 0.0, 1.0);
+          gl.clear (gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+          var positionLocation = gl.getAttribLocation(program, "a_position");
+          var texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+          // provide texture coordinates for the rectangle.
+          var texCoordBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER,
+            new Float32Array([
+              0.0,  0.0,
+              1.0,  0.0,
+              0.0,  1.0,
+              0.0,  1.0,
+              1.0,  0.0,
+              1.0,  1.0]),
+            gl.STATIC_DRAW);
+          gl.enableVertexAttribArray(texCoordLocation);
+          gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+
+          gl.useProgram(this.tvProgram);
+
+          var u_time = ((new Date ()).getTime () - this.startTime)/1000.0;
+          gl.uniform1f (gl.getUniformLocation (this.tvProgram, "u_time"), u_time);
+          gl.uniform2f (gl.getUniformLocation (this.tvProgram, "u_resolution"), 1024, 1024);
+          gl.uniform1i (gl.getUniformLocation (this.tvProgram, "u_image"), 0);
+          gl.uniform1i (gl.getUniformLocation (this.tvProgram, "u_noise"), 1);
+
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, this.tvTexture);
+
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, this.tvNoiseTex);
+
+
+          // Create a buffer for the position of the rectangle corners.
+          var buffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.enableVertexAttribArray(positionLocation);
+          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+          // Set a rectangle the same size as the image.
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+           -1, -1,
+            1, -1,
+           -1,  1,
+           -1,  1,
+            1, -1,
+            1,  1]),
+            gl.STATIC_DRAW);
+          // Draw the rectangle.
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
       }
     };
 
     var renderScene = function() {
       processQueue();
+      Renders.GL.startFrame();
       _(scene).each(function(scene_node) {
         if (renderer == 'GL') Renders.GL.render(scene_node);
         if (scene_node.animate) scene_node.animate();
       });
-
+      Renders.GL.endFrame();
       requestAnimationFrame(renderScene);
     };
 
@@ -634,12 +750,12 @@ $(function() {
           y: source.position.y
         },
         P1: {
-          x: randomRange(-500, 500) + source.position.x,
-          y: randomRange(-500, 500) + source.position.y
+          x: source.position.x,
+          y: source.position.y
         },
         P2: {
-          x: randomRange(-500, 500) + destination.position.x,
-          y: randomRange(-500, 500) + destination.position.y
+          x: destination.position.x,
+          y: destination.position.y
         },
         B: {
           x: destination.position.x,
@@ -809,7 +925,7 @@ $(function() {
               }
 
               // decide to attack or not
-              if (!game_over && !this.attacking && !this.going_back && throwDice(0, 3000) == 1) {
+              if (!game_over && !this.attacking && !this.going_back && throwDice(0, 6000) == 1) {
                 this.attacking = true;
                 this.before_attack_pos = {
                   x: this.position.x,
@@ -823,7 +939,6 @@ $(function() {
               if ((this.attacking && !this.going_back) || (!this.attacking && this.going_back) ) {
                 var time_diff = new Date().getTime() - this.attack_start_time;
                 var t = time_diff / this.attack_speed;
-
                 var ship = getShip();
                 var ship_pos = ship.position;
                 var last_pos = ship.last_pos;
@@ -854,6 +969,7 @@ $(function() {
                   this.attack_bezier_params = calculateEnemyPath({
                     position: this.before_attack_pos
                   }, this);
+
                 } else {
                   this.rotation = 0;
                   return;
