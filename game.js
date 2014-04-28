@@ -194,8 +194,8 @@ $(function() {
 
     var move_step = 10;
     var bullet_step = 10;
-    var enemy_bullet_step = 10;
-    var bullet_limit = 2;
+    var enemy_bullet_step = 17;
+    var bullet_limit = 20;
     var lifes = 3;
     var score = 0;
     var game_over = false;
@@ -272,7 +272,7 @@ $(function() {
           id: null,
           life: i,
           position: {
-            x: dims.width - (i*36),
+            x: dims.width - 200  - (i*36),
             y: 0
           },
           dimensions: {
@@ -281,8 +281,9 @@ $(function() {
           },
           asset_id: 'Objects/Powerup_life.png',
           animate: function() {
-            if (lifes == this.life)
-            removeSceneNodeById(this.id);
+            if (lifes == this.life) {
+              removeSceneNodeById(this.id);
+            }
           }
         }));
       }
