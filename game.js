@@ -83,9 +83,10 @@ $(function() {
     var move_step = 10;
     var bullet_step = 10;
     var enemy_bullet_step = 17;
-    var bullet_limit = 20;
+    var bullet_limit = 5;
     var lifes = 3;
     var score = 0;
+    var konami_code_enabled = false;
     var game_over = false;
     var ship_invincible_time = 3000;  // 3 seconds
     var ship_hit_time_end = null;
@@ -99,7 +100,6 @@ $(function() {
       [1,1,1,1,1,1,1,1,1,1]
     ];
 
-    var enemiesGrid = [[0,0,0,0,1,0,0,0,0]];
     var renderer = 'GL';
     var dims = {
       width: 1024,
@@ -211,6 +211,21 @@ $(function() {
       transformAssets();
     };
 
+    var keyboardInputBuffer = [];
+    var check4KonamiCode = function(keyCode) {
+      keyboardInputBuffer.push(keyCode);
+      if (keyboardInputBuffer.length > 10) {
+        keyboardInputBuffer.shift();
+      }
+
+      console.log(keyboardInputBuffer);
+      // up up down down left right left right b a
+
+      if (_(keyboardInputBuffer).isEqual([38, 38, 40, 40, 37, 39, 37, 39, 66, 65])) {
+        konami_code_enabled = true;
+      }
+    };
+
     var removeSceneNode = function(idx, id) {
       scene.splice(idx, 1);
       if (typeof id !== undefined) {
@@ -269,93 +284,103 @@ $(function() {
     var shoot = function() {
       var ship = getShip();
       if (ship.was_hit) return false;
-      var bullet_count = _(scene).reduce(function(count, node) {
-        if (node.type == 'bullet') return count + 1;
-        return count;
-      }, 0);
 
-      if (bullet_count >= bullet_limit) return false;
+      if (!konami_code_enabled) {
+        var bullet_count = _(scene).reduce(function(count, node) {
+          if (node.type == 'bullet') return count + 1;
+          return count;
+        }, 0);
 
-      var bullet = new SceneNode({
-        type: 'bullet',
-        position: {
-          x: ship.position.x + (ship.dimensions.width / 2) - 2,
-          y: ship.position.y - 14
-        },
-        dimensions: {
-          width: 4,
-          height: 20
-        },
-        asset_id: 'Weapon/Ship_bullet.png',
-        animate: function() {
-          var bullet = this;
-          this.position.y -= bullet_step;
+        if (bullet_count >= bullet_limit) return false;
+      }
+      var bullets_to_build = 1;
+      if (konami_code_enabled) bullets_to_build = 3;
 
-          // check for collision. If enemy is hit then shot array will have it's ID
-          var enemies = getEnemyShips();
-          var shot = [];
-          _(enemies).each(function(enemy) {
-            // point -> rectangle collision
-            var xcoll = bullet.position.x >= enemy.position.x && bullet.position.x <= enemy.position.x+enemy.dimensions.width;
-            var ycoll = bullet.position.y >= enemy.position.y && bullet.position.y <= enemy.position.y+enemy.dimensions.height;
+      for (var bullet_i = 0; bullet_i < bullets_to_build; bullet_i++) {
+        var bullet = new SceneNode({
+          type: 'bullet',
+          position: {
+            x: ship.position.x + (ship.dimensions.width / 2) - 2 + ((bullet_i - bullets_to_build/2) * 17),
+            y: ship.position.y - 14 + (Math.abs(bullet_i - bullets_to_build/2)) * 10
+          },
+          dimensions: {
+            width: 4,
+            height: 20
+          },
+          asset_id: 'Weapon/Ship_bullet.png',
+          animate: function() {
+            var bullet = this;
+            this.position.y -= bullet_step;
 
-            if (xcoll && ycoll) {
-              removeSceneNodeById(bullet.id);
-              shot.push(enemy.id);
+            if (konami_code_enabled) {
+              this.position.x += Math.round(5 - Math.random()*10);
             }
-          });
+            // check for collision. If enemy is hit then shot array will have it's ID
+            var enemies = getEnemyShips();
+            var shot = [];
+            _(enemies).each(function(enemy) {
+              // point -> rectangle collision
+              var xcoll = bullet.position.x >= enemy.position.x && bullet.position.x <= enemy.position.x+enemy.dimensions.width;
+              var ycoll = bullet.position.y >= enemy.position.y && bullet.position.y <= enemy.position.y+enemy.dimensions.height;
 
-          // shot array holds the IDs shot objects so we find the enemies and replace them with explosions
-          _(shot).each(function(idx) {
-            for (var i = 0; i < scene.length; i++) {
-              var node = scene[i];
-
-              if (node.id == idx) {
-                var explosion = new SceneNode({
-                  type: 'explosion',
-                  position: {
-                    x: node.position.x - (node.dimensions.width / 2),
-                    y: node.position.y - (node.dimensions.height / 2)
-                  },
-                  dimensions: {
-                    width: 80,
-                    height: 80
-                  },
-                  frame_index: 0,
-                  frame_count: 7,
-                  animate: function() {
-                    this.frame_index++;
-                    this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
-
-                    if (renderer == 'GL') {
-                      Renders.GL.updateCSS(this.id, {
-                        background: 'url("'+this.asset_id+'")',
-                      });
-                    }
-
-                    if (this.frame_index > this.frame_count) {
-                      removeSceneNodeById(this.id);
-                      this.id = null;
-                    }
-                  },
-                  id: null,
-                  asset_id: 'Weapon/Explosion/Explosion_01.png',
-                });
-
-                // remove enemy and insert explosion
-                removeSceneNode(i, node.id);
-                scene.splice(i, 0, explosion);
+              if (xcoll && ycoll) {
+                removeSceneNodeById(bullet.id);
+                shot.push(enemy.id);
               }
-            }
-          });
+            });
 
-          transformAssets();
-          // check for out of screen bounds
-          if (this.position.y < 0) removeSceneNodeById(bullet.id);
-        }
-      });
+            // shot array holds the IDs shot objects so we find the enemies and replace them with explosions
+            _(shot).each(function(idx) {
+              for (var i = 0; i < scene.length; i++) {
+                var node = scene[i];
 
-      addSceneNode(bullet);
+                if (node.id == idx) {
+                  var explosion = new SceneNode({
+                    type: 'explosion',
+                    position: {
+                      x: node.position.x - (node.dimensions.width / 2),
+                      y: node.position.y - (node.dimensions.height / 2)
+                    },
+                    dimensions: {
+                      width: 80,
+                      height: 80
+                    },
+                    frame_index: 0,
+                    frame_count: 7,
+                    animate: function() {
+                      this.frame_index++;
+                      this.asset_id = this.asset_id.replace(/[0-9]+/g, padZero(this.frame_index));
+
+                      if (renderer == 'GL') {
+                        Renders.GL.updateCSS(this.id, {
+                          background: 'url("'+this.asset_id+'")',
+                        });
+                      }
+
+                      if (this.frame_index > this.frame_count) {
+                        removeSceneNodeById(this.id);
+                        this.id = null;
+                      }
+                    },
+                    id: null,
+                    asset_id: 'Weapon/Explosion/Explosion_01.png',
+                  });
+
+                  // remove enemy and insert explosion
+                  removeSceneNode(i, node.id);
+                  scene.splice(i, 0, explosion);
+                }
+              }
+            });
+
+            transformAssets();
+            // check for out of screen bounds
+            if (this.position.y < 0) removeSceneNodeById(bullet.id);
+          }
+        });
+
+        addSceneNode(bullet);
+      }
     };
 
     // Renderers
@@ -616,6 +641,8 @@ $(function() {
       document.onkeydown = function(e) {
         e = e || window.event;
 
+        check4KonamiCode(e.keyCode);
+
         if (action == null && e.keyCode == 37) {
           action = moveLeft;
         } else if (action == null && e.keyCode == 39) {
@@ -680,7 +707,7 @@ $(function() {
         },
         animate: function() {
           this.position.y -= 2;
-          if (this.position.y <= -1100) {
+          if (this.position.y <= -1060) {
             this.animate = null;
           }
         }
