@@ -40,7 +40,8 @@ $(function() {
       './Weapon/Explosion/Explosion_04.png',
       './Weapon/Explosion/Explosion_06.png',
       './Weapon/Explosion/Explosion_07.png',
-      './noise.png'
+      './noise.png',
+      './credits.png'
     ];
 
     var LoadedAssets = [];
@@ -98,12 +99,14 @@ $(function() {
       [1,1,1,1,1,1,1,1,1,1]
     ];
 
+    var enemiesGrid = [[0,0,0,0,1,0,0,0,0]];
     var renderer = 'GL';
     var dims = {
       width: 1024,
       height: 1024
     };
 
+    var won = false;
     var throwDice = randomRange = function(from, to) {
       if (from > to) {
         var t = from;
@@ -597,6 +600,7 @@ $(function() {
     };
 
     var renderScene = function() {
+      if (getEnemyShips().length == 0) Win();
       processQueue();
       Renders.GL.startFrame();
       _(scene).each(function(scene_node) {
@@ -650,6 +654,38 @@ $(function() {
           y: destination.position.y
         }
       }
+    };
+
+    var Win = function() {
+      if (won) return;
+      won = true;
+      scene = _(scene).reduce(function(new_scene, node) {
+        if (node.type == 'ship') {
+          new_scene.push(node);
+        }
+        return new_scene;
+      }, []);
+
+      getShip().visible = false;
+      scene.push(new SceneNode({
+        id: null,
+        asset_id: 'credits.png',
+        position: {
+          x: (1024 - 415) / 2,
+          y: 1024
+        },
+        dimensions: {
+          width: 415,
+          height: 1767
+        },
+        animate: function() {
+          this.position.y -= 2;
+          if (this.position.y <= -1100) {
+            this.animate = null;
+          }
+        }
+      }));
+      transformAssets();
     };
 
     var gameOver = function() {
