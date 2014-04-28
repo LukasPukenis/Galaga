@@ -217,6 +217,16 @@
         return vec3 (hsv2rgb (hsv));
       }
 
+      vec3 vStar (vec3 sPix, vec2 gPos) {
+        vec4 nPix = texture2D (iChannel1, vec2 (gPos.x/3.0, mod (gPos.y/3.0 + iGlobalTime/50.0,1.0)));
+        float g = (nPix.x + nPix.y + nPix.z)/3.0;
+        float d = distance (sPix, vec3 (0.0));
+        if (g > 0.98 && d < 0.05)  {
+          return nPix.xyz;
+        }
+        return sPix;
+      }
+
       void main(void)
       {
         vec2 cRes = iChannelResolution.xy;
@@ -232,10 +242,11 @@
         bPos = vCrtCurvature (gPos, 0.3);         // curvature for the noize bar
         cPos = vFrameShift (cPos, -0.0, -0.0);       // frame shift
         cCol = vRGBWithShift (cPos, 120.0, 0.002);       // sample signal color
+        cCol = vStar (cCol, cPos);
         cCol = vColorDrift (cCol, 0.5 + 0.5*(1.0 - qNoise));
         cCol = cSignalNoise (cCol, qNoise * 0.4, gPos);       // add signal noise
         cCol = vPowerNoise (cCol, bPos, 4.0, -0.2, 0.1);  // power line noize
-        cCol = vRGBTint (cCol, vec3 (1.0, 1.0, 1.0), 1.0);  // gamma tint
+        cCol = vRGBTint (cCol, vec3 (0.5, 0.8, 0.9), 1.0);  // gamma tint
         cCol = cCol * qScanLine (gPos, 256.0);        // add scanlines
         cCol = cCol * qVignete (gPos, 1.5, 3.0);      // add edge darkening
         gl_FragColor = vec4 (cCol, 1.0);
