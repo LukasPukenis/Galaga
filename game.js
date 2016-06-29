@@ -457,7 +457,10 @@ $(function() {
        init: function() {
           this.startTime = (new Date ()).getTime ();
           this.createRenderBuffer ();
+          var canvas = document.getElementById('playground');
+          var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
 
+          this._buffer = gl.createBuffer();
           gl.bindTexture(gl.TEXTURE_2D, null);
 
           // setup GLSL program
@@ -471,6 +474,44 @@ $(function() {
           gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
           gl.disable(gl.DEPTH_TEST);
 
+
+          this.texCoordBuffer = gl.createBuffer();
+          this.positionLocation = gl.getAttribLocation(program, "a_position");
+          this.texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER,
+            new Float32Array([
+              0.0,  0.0,
+              1.0,  0.0,
+              0.0,  1.0,
+              0.0,  1.0,
+              1.0,  0.0,
+              1.0,  1.0]),
+          gl.STATIC_DRAW);
+
+          gl.enableVertexAttribArray(this.texCoordLocation);
+          gl.vertexAttribPointer(this.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+          //////////////////
+          _.each(AssetLoader.assets, function(asset) {
+            var img = asset.image;
+            // upload images one by one to gpu
+            gl.activeTexture(gl.TEXTURE0);
+            var texture = gl.createTexture();
+            asset.glTexture = texture;
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            // Set the parameters so we can render any size image.
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          });
+
+          ////////////////
           Renders.GL.initialized = true;
         },
         startFrame: function () {
@@ -489,6 +530,7 @@ $(function() {
           $('#playground').find('#'+node_id).remove();
         },
         render: function(node) {
+          if (window.pause) return false;
           if (!Renders.GL.initialized) Renders.GL.init();
           if (node.visible === false) return;
 
@@ -499,37 +541,11 @@ $(function() {
           });
           var image = asset_entry.image;
 
-          // look up where the vertex data needs to go.
-          var positionLocation = gl.getAttribLocation(program, "a_position");
-          var texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
-
-          // provide texture coordinates for the rectangle.
-          var texCoordBuffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-              0.0,  0.0,
-              1.0,  0.0,
-              0.0,  1.0,
-              0.0,  1.0,
-              1.0,  0.0,
-              1.0,  1.0]), gl.STATIC_DRAW);
-          gl.enableVertexAttribArray(texCoordLocation);
-          gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
           gl.activeTexture(gl.TEXTURE0);
 
-          // Create a texture.
-          var texture = gl.createTexture();
-          gl.bindTexture(gl.TEXTURE_2D, texture);
-
-          // Set the parameters so we can render any size image.
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-          // Upload the image into the texture.
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-
+          // get the texture
+          var tex = asset_entry.glTexture;
+          gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.useProgram(program);
 
           // lookup uniforms
@@ -555,10 +571,9 @@ $(function() {
           gl.uniform2f(center, center_x, center_y);
 
           // Create a buffer for the position of the rectangle corners.
-          var buffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-          gl.enableVertexAttribArray(positionLocation);
-          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+          gl.bindBuffer(gl.ARRAY_BUFFER, this._buffer);
+          gl.enableVertexAttribArray(this.positionLocation);
+          gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
 
           // Set a rectangle the same size as the image.
           this.setRectangle(gl, node.position.x, node.position.y, image.width, image.height);
@@ -570,22 +585,7 @@ $(function() {
         renderTvTexture: function () {
           gl.clearColor (0.0, 0.0, 0.0, 1.0);
           gl.clear (gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-          var positionLocation = gl.getAttribLocation(program, "a_position");
-          var texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
           // provide texture coordinates for the rectangle.
-          var texCoordBuffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-          gl.bufferData(gl.ARRAY_BUFFER,
-            new Float32Array([
-              0.0,  0.0,
-              1.0,  0.0,
-              0.0,  1.0,
-              0.0,  1.0,
-              1.0,  0.0,
-              1.0,  1.0]),
-            gl.STATIC_DRAW);
-          gl.enableVertexAttribArray(texCoordLocation);
-          gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
 
           gl.useProgram(this.tvProgram);
@@ -602,12 +602,11 @@ $(function() {
           gl.activeTexture(gl.TEXTURE1);
           gl.bindTexture(gl.TEXTURE_2D, this.tvNoiseTex);
 
-
           // Create a buffer for the position of the rectangle corners.
           var buffer = gl.createBuffer();
           gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-          gl.enableVertexAttribArray(positionLocation);
-          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+          gl.enableVertexAttribArray(this.positionLocation);
+          gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
 
           // Set a rectangle the same size as the image.
           gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -628,16 +627,39 @@ $(function() {
       if (getEnemyShips().length == 0) Win();
       processQueue();
       Renders.GL.startFrame();
-      _(scene).each(function(scene_node) {
+
+      for (var i = 0; i < scene.length; i++) {
+        var scene_node = scene[i];
         if (renderer == 'GL') Renders.GL.render(scene_node);
         if (scene_node.animate) scene_node.animate();
-      });
+      }
       Renders.GL.endFrame();
       requestAnimationFrame(renderScene);
     };
 
     // bind input events and attach them to action so we can shoot without stopping the moving. Keyup is not called when another key is pressed
     var bindKeyboard = function() {
+      // also bind touches
+      $('#left_btn').on('touchstart mousedown', function() {
+        action = moveLeft;
+      });
+      $('#left_btn').on('touchend mouseup', function() {
+        action = null;
+        return false;
+      });
+      $('#right_btn').on('touchstart mousedown', function() {
+        action = moveRight;
+        return false;
+      });
+      $('#right_btn').on('touchend mouseup', function() {
+        action = null;
+        return false;
+      });
+      $('#shoot_btn').on('touchstart mousedown', function() {
+        shoot();
+        return false;
+      });
+
       document.onkeydown = function(e) {
         e = e || window.event;
 
