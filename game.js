@@ -9,7 +9,6 @@ $(function() {
       './Space/Space_bg_0.png',
       './Space/Space_bg_3.png',
       './Space/Space_bg_2.png',
-      './preview.png',
       './Alien/Alien_l.png',
       './Alien/Alien_r.png',
       './Alien/Alien_ll.png',
